@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 14 18:39:44 2020
+
+@author: Pedro_Martínez
+"""
+# Load  plotting libraries
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+from collections import Counter
+from xgboost import XGBRegressor
+
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler, Normalizer
+
+from sklearn.metrics import mean_squared_error as MSE
+
+import sys
+sys.path.append('/Users/macbookpro/Desktop/Python_excercises/')
+
+from Package_container.Utilities import CSV,TXT
+from Package_container.Modelo import Regressor
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+import time
+
+from sklearn.model_selection import learning_curve
+from sklearn.model_selection import ShuffleSplit
+
+
+
+df_raw = CSV('train.csv').data
+df_raw_test =CSV('test.csv').data
+df=pd.concat([df_raw, df_raw_test],axis=1)
+def cleaning(df_raw,df_raw_test):
+#    col_nan=CSV.find_nan(df_raw)
+    
+    list0=['LotFrontage', 'Alley', 'MasVnrType','MasVnrArea', 'BsmtQual', 
+           'BsmtCond','BsmtExposure', 'BsmtFinType1', 'BsmtFinType2','FireplaceQu',
+           'GarageType','GarageYrBlt','GarageQual','GarageFinish','GarageCond',
+           'PoolQC','Fence','MiscFeature']
+    
+    
+    
+    fillnan_mode = ['Electrical']
+    indices = int(np.where(df_raw[fillnan_mode].isna())[0])
+    dropp = ['GarageCars']
+    
+    df_raw=df_raw.drop(indices)
+    df_raw=df_raw.drop(dropp,axis=1)
+    df_raw_test=df_raw_test.drop(dropp,axis=1)
+    
+    
+    def fill_df0(df ,list0):
+        for elem in list0:
+            df[elem]=df[elem].fillna(0)
+        return df
+    
+    df_clean = fill_df0(df_raw,list0)
+    df_clean_test = fill_df0(df_raw_test,list0)
+    
+    return df_clean, df_clean_test
+
+
+df_clean, df_clean_test = cleaning(df_raw,df_raw_test)
+
+
+id_test=df_clean_test['Id']
+target=np.array(df_clean['SalePrice']).reshape(-1,1)
+
+df_clean.drop(['Id','SalePrice'],axis=1,inplace=True),
+df_clean_test.drop('Id',axis=1,inplace=True)
+
+
+def get_intervals(df_):
+
+    Lines=TXT('data_description.txt').Lines
+    
+    cat_order=['BsmtQual', 'BsmtCond','BsmtExposure', 'BsmtFinType1',
+               'BsmtFinType2','GarageQual','GarageFinish',
+               'GarageCond', 'PoolQC', 'Fence', 'LandSlope', 'LandContour',
+               'ExterQual', 'ExterCond', 'HeatingQC',
+               'KitchenQual','Functional','FireplaceQu']
+        
+#    start = time.time()
+    for pos,line in enumerate(Lines):
+        if line.startswith('\n'):
+            continue
+        else:
+            for cat in cat_order:
+                if line.startswith(cat):
+                    count=0
+                    params=[]
+                    while Lines[pos+count+2].lstrip('\t').lstrip('\t') != '\n':
+                        params.append(Lines[pos+count+2].lstrip().split('\t')[0])
+                        count+=1
+                    mapa=dict(zip(params,range(count-1, -1, -1)))
+                    cat_order.remove(cat)
+                    df_[cat]=df_[cat].map(mapa)
+#    print(time.time()-start)
+    return df_
+
+df_clean=get_intervals(df_clean)
+df_clean_test=get_intervals(df_clean_test)
+    
+df_clean = df_clean.fillna(0)
+df_clean_test = df_clean_test.fillna(0)
+
+df_clean['MSSubClass']=df_clean['MSSubClass'].apply(str)
+df_clean_test['MSSubClass']=df_clean_test['MSSubClass'].apply(str)
+
+df_dummy=pd.get_dummies(df_clean,drop_first=True,dummy_na=True)
+df_dummy_test=pd.get_dummies(df_clean_test,drop_first=True,dummy_na=True)
+    
+df_dummy, df_dummy_test = df_dummy.align(df_dummy_test, join='left', axis=1)
+df_dummy['SalePrice']=target
+
+df_dummy['new_year'] = 0.7*df_dummy['YearBuilt']+0.3*df_dummy['YearRemodAdd']
+df_dummy_test['new_year']=0.7*df_dummy_test['YearBuilt']+0.3*df_dummy_test['YearRemodAdd']
+
+df_dummy=df_dummy.drop(['YearBuilt','YearRemodAdd'],axis=1)
+df_dummy_test=df_dummy_test.drop(['YearBuilt','YearRemodAdd'],axis=1)
+
+
+
+
+def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=10, 
+                            n_jobs=-1, train_sizes=np.linspace(.1, 1.0, 5)):
+
+    if axes is None:
+        _, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    axes.set_title(title)
+    if ylim is not None:
+        axes.set_ylim(*ylim)
+    axes.set_xlabel("Training examples")
+    axes.set_ylabel("Score")
+
+    train_sizes, train_scores, test_scores= learning_curve( estimator, X, y, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes, )
+                      
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+
+
+    # Plot learning curve
+    axes.grid()
+    axes.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                         train_scores_mean + train_scores_std, alpha=0.1,
+                         color="r")
+    axes.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                         test_scores_mean + test_scores_std, alpha=0.1,
+                         color="g")
+    axes.plot(train_sizes, train_scores_mean, 'o-', color="r",
+                 label="Training score")
+    axes.plot(train_sizes, test_scores_mean, 'o-', color="g",
+                 label="Cross-validation score")
+    axes.legend(loc="best")
+
+
+    return plt
+
+fig, axes = plt.subplots(1, 1, figsize=(5, 5))
+
+
+
+def modelo(X, Xtest):#  
+    
+    model = Regressor()
+    
+    
+
+    X_train, X_test, y_train, y_test = model.train_test( X, 'SalePrice')
+    X_train, X_test= model.select_inputs(X_train, X_test, y_train, 'all')
+    
+#    estimator = Model.my_model 
+#    plot_learning_curve(estimator, "Learning Curves train", X_train, y_train,                                                        ylim=(0.5,1.01),axes=axes)   
+#    
+
+    
+
+    eval_set = [(X_test, y_test)]
+    
+###################GridSearchCV or simple
+    
+#    Model.fit(X_train, y_train, 'rmse', eval_set)
+#    y_pred_test = Model.predict(Xtest[columnsSpecial])
+    
+    
+#    Evaluate Metrics
+#    y_pred_train = Model.predict(X_train)
+#    y_pred_tt = Model.predict(X_test[columnsSpecial])
+#    
+#    
+#    best_params = model.fit_grid(X_train, y_train, 'rmse', eval_set)
+    
+    columnsSpecial = list(X_train.columns)
+    best_params = model.fit_grid(X[columnsSpecial], X['SalePrice'], 'rmse', eval_set)
+    
+    y_pred_test = model.predict_grid(Xtest[columnsSpecial])
+#    
+#    y_pred_train = model.predict_grid(X_train)
+#    y_pred_tt = model.predict_grid(X_test)
+#
+#
+#    model._error('train', y_train, y_pred_train)
+#    model._error('test', y_test, y_pred_tt)
+    model._error('test', target, y_pred_test)
+
+    
+######################################
+    
+#    
+#    results = model.grid_mse.cv_results_
+#    epochs = len(results['validation_0']['error'])
+#    x_axis = range(0, epochs)
+#    # plot log loss
+#    fig, ax = plt.subplots()
+#    ax.plot(x_axis, results['validation_0']['logloss'], label='Train')
+#    ax.plot(x_axis, results['validation_1']['logloss'], label='Test')
+#    ax.legend()
+#    plt.ylabel('Log Loss')
+#    plt.title('XGBoost Log Loss')
+#    plt.show()
+#    # plot classification error
+#    fig, ax = plt.subplots()
+#    ax.plot(x_axis, results['validation_0']['error'], label='Train')
+#    ax.plot(x_axis, results['validation_1']['error'], label='Test')
+#    ax.legend()
+#    plt.ylabel('Classification Error')
+#    plt.title('XGBoost Classification Error')
+#    plt.show()
+    
+    
+    
+    return y_pred_test, columnsSpecial,best_params
+
+
+
+
+predictions, Variables, best_params = modelo(df_dummy, df_dummy_test)
+
+
+df_final=pd.DataFrame([predictions]).T
+df_final.columns=['SalePrice']
+df_final.index=id_test
+df_final.to_csv('House_Submission')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+'''
+House = Regressor()
+
+
+
+def matcher(df,pattern):
+    cols = [f for f in df if (pattern in f.lower())]
+    
+    df1 = df.drop(cols, axis=1)
+    df_new = df[cols]
+
+#    df_gar_cat = House.order_category(df_gar)
+    df_new_cat = pd.get_dummies(df_new, drop_first=True)    
+#    df_new_cat = df_new_cat.fillna(0)
+
+    
+    scaler = Normalizer()
+    X = df_new_cat
+
+    # fit the classifier on the training dataset
+    X = scaler.fit_transform(X)
+    pca = PCA(1)
+    pca.fit(X)
+#    print(pca.n_components_)
+    X = pd.DataFrame(pca.transform(X),columns=['Trans_'+pattern])
+    X = pd.concat([df1, X], axis=1)
+    return X
+
+
+
+lista = [ 'roof', 'exter', 'overa', 'bath',  'kitchen', 'fire', 'heat', 'pool','condition', 'msz','year','bsmt', 'elect','land','misc','type','pave', 'hood','funct','fence','house', 'found',]
+
+considerarluego=['utilities','bed','class','street','air','alley','garage','area','lot']
+#garage,area'lot'
+dropear=[]
+
+for col in df_raw.columns:
+    for elem in considerarluego:
+        if elem in col.lower():
+            dropear.append(col)
+        
+
+
+df = df_raw.drop(dropear,axis=1)
+df_test = df_raw_test.drop(dropear,axis=1)
+
+for pattern in lista:
+    df=matcher(df,pattern)
+    df_test=matcher(df_test,pattern)
+
+#
+'''

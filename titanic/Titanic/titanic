@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Apr  5 20:21:44 2020
+
+@author: Pedro_Martínez
+"""
+
+from Package_container.Utilities import CSV
+from Package_container.Modelo import Classifier
+# Load  plotting libraries
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load warnings libraries
+import warnings
+warnings.filterwarnings('ignore')
+
+test = CSV('test.csv')
+train = CSV('train.csv')
+
+
+df_raw = train._read_csv()
+
+cols_nan = train.find_nan(df_raw)
+df_no_nan = train.replace_nan(df_raw, cols_nan)
+
+# sns.heatmap(df_clean.corr(), annot = True)
+df_clean = df_no_nan.drop(['Name', 'Ticket','Fare'], axis=1)
+
+
+# #####processing the data
+
+Titanic = Classifier()
+df_std = Titanic.standarize(df_clean)
+df_cat = Titanic.categorize(df_std)
+
+X_train, X_test, y_train, y_test = Titanic.train_test(df_cat, 'Survived')
+
+X_train, X_test = Titanic.select_inputs(X_train, X_test, y_train, 'all')
+
+eval_set = [(X_test, y_test)]
+Titanic.fit(X_train, y_train, 'auc', eval_set)
+
+y_pred_train = Titanic.predict(X_train)
+y_pred_test = Titanic.predict(X_test)
+
+error_train = Titanic._error('train', y_train, y_pred_train)
+error_test = Titanic._error('test', y_test, y_pred_test)
+#
+#
+#Titanic.fit_grid(X_train, y_train, 'auc', eval_set)
+#
+#y_pred_train_cv = Titanic.predict_grid(X_train)
+#y_pred_test_cv = Titanic.predict_grid(X_test)
+#
+#
+#error_traincv = Titanic._error('train cv', y_train, y_pred_train_cv)
+#error_testcv = Titanic._error('test cv', y_test, y_pred_test_cv)

@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 14 16:32:18 2020
+
+@author: Pedro_Martínez
+"""
+
+import sys
+sys.path.append('/Users/macbookpro/Desktop/Python_excercises/')
+from Package_container.Utilities import CSV
+from Package_container.Modelo import Classifier
+# Load  plotting libraries
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+# Load warnings libraries
+import warnings
+warnings.filterwarnings('ignore')
+
+
+def calculate_df_clean(x):
+
+    train = CSV(x)
+    df_raw = train._read_csv()
+    cols_nan = train.find_nan(df_raw)
+    df_no_nan = train.replace_nan(df_raw, cols_nan)
+
+    df_clean = df_no_nan.drop(['Name', 'Ticket', 'Fare'], axis=1)
+    return df_clean
+
+
+# #####processing the data
+
+
+def model(df_clean, Xtest):
+
+    Titanic = Classifier()
+    df_std = Titanic.standarize(df_clean)
+    df_cat = Titanic.categorize(df_std)
+
+    Xstd = Titanic.standarize(Xtest)
+    Xcat = Titanic.categorize(Xstd)
+
+    X_train, X_test, y_train, y_test = Titanic.train_test(df_cat, 'Survived')
+    X_train, X_test = Titanic.select_inputs(X_train, X_test, y_train, 'all')
+
+    eval_set = [(X_test, y_test)]
+#    Titanic.fit(X_train, y_train, 'auc', eval_set)
+
+#    y_pred_train = Titanic.predict(X_train)
+#    y_pred_test = Titanic.predict(X_test)
+#
+#    error_train = Titanic._error('train', y_train, y_pred_train)
+#    error_test = Titanic._error('test', y_test, y_pred_test)
+    Titanic.fit_grid(X_train, y_train, 'auc', eval_set)
+
+    y_final = Titanic.predict_grid(Xcat)
+
+    return y_final
+
+
+df_clean_train = calculate_df_clean('train.csv')
+df_clean_test = calculate_df_clean('test.csv')
+
+muertos = model(df_clean_train, df_clean_test)
+final_df = pd.DataFrame(df_clean_test['PassengerId'])
+final_df['Survived'] = muertos
+final_df.to_csv('Titanic Submission'  ,index=None)#write the file 27 seconds
