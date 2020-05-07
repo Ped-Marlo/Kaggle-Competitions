@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<rss version="2.0">
+	 <channel>
+		 <title>Noticias</title>
+		 <link>http://misitio.com</link>
+		 <description>Portal de Noticias de España</description>
+		 <item>
+			<title>Noticia 1</title>
+			<link>http://misitio.com/noticia1</link>
+			<description>Descripción de la noticia 1</description>
+		 </item>
+		 <item>
+			<title>Noticia 2</title>
+			<link>http://misitio.com/noticia2</link>
+			<description>Descripción de la noticia 2</description>
+		 </item>
+		 <item>
+			<title>Noticia 3</title>
+			<link>http://misitio.com/noticia3</link>
+			<description>Descripción de la noticia 3</description>
+		 </item>
+	 </channel>
+</rss>

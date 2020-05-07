@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<listin>
+	<persona sexo="hombre" id="ricky">
+		<nombre>Roberto Casas</nombre>
+		<email>ro.casas@direccion.com</email>
+		<relacion amigo de="leire pepe"/>
+	</persona>
+	<persona sexo="mujer" id="leire">
+		<nombre>Leire Garcia</nombre>
+		<email>le.garcia@direccion.com</email>
+		<email>le.garcia@hotmail.com</email>
+		<relacion amigo_de="ricky"/>
+	</persona>
+	<persona sexo="hombre" id="pepe">
+		<nombre>Jose Manzaneda</nombre>
+		<email>j.manzaneda@direccion.com</email>
+		<email>jman@hotmail.com</email>
+		<relacion enemigo_de="leire" amigo_de="ricky"/>
+	</persona>
+</listin> 
